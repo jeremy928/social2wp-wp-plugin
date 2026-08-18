@@ -65,6 +65,7 @@ class Social2WP_Settings {
         $author          = (int) get_option( 'social2wp_post_author', 1 );
         $separator_style = get_option( 'social2wp_separator_style', 'default' );
         $separator_color = get_option( 'social2wp_separator_color', '' );
+        $connected_at    = get_option( 'social2wp_connected_at', '' );
         $categories      = get_categories( [ 'hide_empty' => false ] );
         $users           = get_users( [ 'capability' => 'edit_posts' ] );
         $site_url        = get_site_url();
@@ -111,6 +112,22 @@ class Social2WP_Settings {
 
             <div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:1.5rem;margin-bottom:1.5rem;max-width:700px;">
                 <h2 style="margin-top:0;font-size:1rem;">Connection</h2>
+
+                <?php if ( $connected_at ) : ?>
+                <p style="margin-bottom:1rem;">
+                    <span style="display:inline-flex;align-items:center;gap:0.375rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:0.8125rem;padding:0.3em 0.75em;border-radius:99px;">
+                        <span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;"></span>
+                        Connected since <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $connected_at ) ) ); ?>
+                    </span>
+                </p>
+                <?php else : ?>
+                <p style="margin-bottom:1rem;">
+                    <span style="display:inline-flex;align-items:center;gap:0.375rem;background:#fef9c3;border:1px solid #fde047;color:#854d0e;font-size:0.8125rem;padding:0.3em 0.75em;border-radius:99px;">
+                        <span style="width:7px;height:7px;border-radius:50%;background:#ca8a04;display:inline-block;"></span>
+                        Not connected
+                    </span>
+                </p>
+                <?php endif; ?>
 
                 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;">
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">

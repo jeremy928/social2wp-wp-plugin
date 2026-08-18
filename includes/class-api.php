@@ -41,6 +41,7 @@ class Social2WP_API {
 
         delete_option( 'social2wp_connect_token' );
         delete_option( 'social2wp_connect_token_expiry' );
+        update_option( 'social2wp_connected_at', current_time( 'mysql' ) );
 
         return rest_ensure_response( [ 'api_key' => get_option( 'social2wp_api_key' ) ] );
     }

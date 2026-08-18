@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,10 +72,20 @@ No. The plugin only receives data — it never initiates outbound requests on it
 
 == Changelog ==
 
+= 1.1.0 =
+* Added one-click Connect to Social2WP flow — no manual API key or endpoint setup needed
+* Added how-to-connect instructions directly on the settings page
+* Added divider style setting — choose from any separator styles registered by your theme or plugins
+* Added divider color setting — pick a custom color for the divider between image and caption
+* API key moved to a collapsed "Advanced" section since it is now managed automatically
+
 = 1.0.0 =
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Adds one-click connect flow and new divider style and color options. Existing connections are not affected.
 
 = 1.0.0 =
 Initial release.
