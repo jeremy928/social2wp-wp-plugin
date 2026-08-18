@@ -45,7 +45,7 @@ add_action( 'admin_post_social2wp_connect', function () {
 
     $token = wp_generate_password( 32, false );
     update_option( 'social2wp_connect_token', $token );
-    update_option( 'social2wp_connect_token_expiry', time() + 900 );
+    update_option( 'social2wp_connect_token_expiry', time() + 3600 );
 
     wp_redirect( add_query_arg( [
         'site'  => get_site_url(),
