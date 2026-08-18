@@ -25,10 +25,10 @@ Companion plugin for Social2WP — automatically formats and publishes your sync
 
 **How it works:**
 
-1. Create an account at social2wp.com and connect your Instagram
-2. Install and activate this plugin on your WordPress site
-3. Copy the plugin sync endpoint URL from Settings → Social2WP
-4. Paste it into your Social2WP dashboard when connecting this WordPress site
+1. Install and activate this plugin on your WordPress site
+2. Go to **Settings → Social2WP** and click **Connect to Social2WP**
+3. Create a Social2WP account and start your subscription
+4. Connect your Instagram account through Facebook
 5. Social2WP handles the rest — your Instagram posts arrive here automatically
 
 Images are downloaded from Instagram and stored in your WordPress Media Library. The first image in each post is set as the featured image. Each post links back to the original Instagram post.
@@ -41,22 +41,22 @@ This plugin receives data sent from the Social2WP service (social2wp.com). It do
 
 1. Upload the `social2wp` folder to `/wp-content/plugins/`
 2. Activate through the Plugins screen in WordPress
-3. Go to **Settings → Social2WP**
-4. Copy the plugin endpoint URL and enter it in your Social2WP dashboard
+3. Go to **Settings → Social2WP** and click **Connect to Social2WP**
+4. Follow the prompts to create your account, start your subscription, and connect Instagram
 
 == Frequently Asked Questions ==
 
 = Do I need a Social2WP account? =
 
-Yes. This plugin is a companion to the Social2WP service at social2wp.com and does nothing on its own. You must have an active Social2WP account and connect your Instagram through their dashboard before any posts will arrive at this plugin.
+Yes. This plugin is a companion to the Social2WP service at social2wp.com and does nothing on its own. Click **Connect to Social2WP** on the plugin settings page to create your account and connect your Instagram — the whole process takes just a few minutes.
 
 = What gallery formats are supported? =
 
 Native WordPress Gallery is available on all sites with no additional plugins required. Masonry layout requires the [Simply Gallery Block](https://wordpress.org/plugins/simply-gallery-block/) plugin to be installed and active. The masonry option only appears in settings when Simply Gallery Block is detected.
 
-= Where do I find the sync endpoint URL? =
+= How do I connect my WordPress site to Social2WP? =
 
-Go to Settings → Social2WP in your WordPress admin. The URL is displayed at the top of the page. Copy it and paste it into your Social2WP dashboard when connecting this site.
+Go to Settings → Social2WP in your WordPress admin and click **Connect to Social2WP**. This opens social2wp.com where you can create an account, start your subscription, and connect your Instagram — your WordPress site is linked automatically at the end of that process.
 
 = What data does this plugin store? =
 
