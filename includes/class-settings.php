@@ -54,9 +54,32 @@ class Social2WP_Settings {
         exit;
     }
 
+    private function get_account_status(): string {
+        $api_key = get_option( 'social2wp_api_key', '' );
+        if ( ! $api_key ) return 'unknown';
+
+        $cached = get_transient( 'social2wp_account_status' );
+        if ( $cached !== false ) return $cached;
+
+        $response = wp_remote_get( 'https://social2wp.com/api/account-status', [
+            'headers' => [ 'X-API-Key' => $api_key ],
+            'timeout' => 5,
+        ] );
+
+        if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
+            return 'unknown';
+        }
+
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+        $status = $body['status'] ?? 'unknown';
+        set_transient( 'social2wp_account_status', $status, HOUR_IN_SECONDS );
+        return $status;
+    }
+
     public function render_page(): void {
         if ( ! current_user_can( 'manage_options' ) ) return;
 
+        $account_status  = $this->get_account_status();
         $api_key         = get_option( 'social2wp_api_key', '' );
         $masonry_ok      = class_exists( 'PGC_Simply_Gallery_Block' ) || function_exists( 'pgc_sgb_init' );
         $format          = get_option( 'social2wp_gallery_format', 'native' );
@@ -87,6 +110,18 @@ class Social2WP_Settings {
         ?>
         <div class="wrap">
             <h1>Social2WP</h1>
+
+            <?php if ( $account_status === 'past_due' ) : ?>
+            <div class="notice notice-error" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.75rem 1rem;">
+                <p style="margin:0;">⚠️ <strong>Payment failed.</strong> Update your billing info to keep syncing.</p>
+                <a href="https://social2wp.com/billing" target="_blank" rel="noopener" class="button button-primary" style="white-space:nowrap;">Update billing →</a>
+            </div>
+            <?php elseif ( $account_status === 'deactivated' ) : ?>
+            <div class="notice notice-error" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.75rem 1rem;">
+                <p style="margin:0;">⚠️ <strong>Account deactivated.</strong> Resubscribe to resume syncing.</p>
+                <a href="https://social2wp.com/billing" target="_blank" rel="noopener" class="button button-primary" style="white-space:nowrap;">Resubscribe →</a>
+            </div>
+            <?php endif; ?>
 
             <?php if ( $connected ) : ?>
             <div class="notice notice-success is-dismissible"><p>Connected! Your WordPress site is now linked to Social2WP.</p></div>
