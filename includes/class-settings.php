@@ -77,7 +77,7 @@ class Social2WP_Settings {
                 <ol style="color:#50575e;font-size:0.9rem;line-height:2;padding-left:1.25rem;margin:0;">
                     <li>Click <strong>Connect to Social2WP</strong> below</li>
                     <li>Create a Social2WP account (or sign in if you already have one)</li>
-                    <li>Subscribe to a plan</li>
+                    <li>Start your subscription</li>
                     <li>Connect your Instagram account through Facebook</li>
                     <li>You're done — your WordPress site will be linked automatically</li>
                 </ol>
