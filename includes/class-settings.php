@@ -72,30 +72,22 @@ class Social2WP_Settings {
             <div class="notice notice-success is-dismissible"><p>API key regenerated. Update your Social2WP dashboard with the new key.</p></div>
             <?php endif; ?>
 
+            <div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:1.5rem;margin-bottom:1rem;max-width:700px;">
+                <h2 style="margin-top:0;font-size:1rem;">How to connect</h2>
+                <ol style="color:#50575e;font-size:0.9rem;line-height:2;padding-left:1.25rem;margin:0;">
+                    <li>Click <strong>Connect to Social2WP</strong> below</li>
+                    <li>Create a Social2WP account (or sign in if you already have one)</li>
+                    <li>Subscribe to a plan</li>
+                    <li>Connect your Instagram account through Facebook</li>
+                    <li>You're done — your WordPress site will be linked automatically</li>
+                </ol>
+                <p style="margin-top:0.75rem;margin-bottom:0;font-size:0.8125rem;">
+                    <a href="https://social2wp.com/getting-started" target="_blank" rel="noopener">Full setup guide →</a>
+                </p>
+            </div>
+
             <div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:1.5rem;margin-bottom:1.5rem;max-width:700px;">
                 <h2 style="margin-top:0;font-size:1rem;">Connection</h2>
-                <p style="color:#50575e;margin-bottom:1.25rem;">
-                    Install this plugin on your WordPress site, then connect it to your
-                    <a href="<?php echo esc_url( $dashboard_url ); ?>" target="_blank" rel="noopener">Social2WP account</a>
-                    to start syncing your Instagram posts.
-                </p>
-
-                <table class="form-table" role="presentation" style="margin:0 0 1.25rem;">
-                    <tr>
-                        <th scope="row" style="width:120px;padding-left:0;">API Key</th>
-                        <td style="padding-left:0;">
-                            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-                                <code id="s2wp-api-key" style="background:#f6f7f7;border:1px solid #ddd;padding:0.35rem 0.75rem;border-radius:3px;font-size:13px;letter-spacing:0.04em;word-break:break-all;"><?php echo esc_html( $api_key ); ?></code>
-                                <button type="button" id="s2wp-copy-btn" class="button" onclick="
-                                    navigator.clipboard.writeText(document.getElementById('s2wp-api-key').innerText);
-                                    this.textContent='Copied!';
-                                    setTimeout(()=>this.textContent='Copy',2000);
-                                ">Copy</button>
-                            </div>
-                            <p class="description" style="margin-top:0.5rem;">Enter this key in your Social2WP dashboard when connecting this site.</p>
-                        </td>
-                    </tr>
-                </table>
 
                 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;">
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -104,18 +96,33 @@ class Social2WP_Settings {
                         <button type="submit" class="button button-primary">Connect to Social2WP</button>
                     </form>
                     <a href="<?php echo esc_url( $dashboard_url ); ?>" class="button" target="_blank" rel="noopener">
-                        Go to Dashboard ↗
+                        Go to Social2WP Dashboard ↗
                     </a>
                 </div>
 
-                <form method="post">
-                    <?php wp_nonce_field( 'social2wp_regenerate_key' ); ?>
-                    <button type="submit" name="social2wp_regenerate" value="1" class="button"
-                        style="color:#b32d2e;"
-                        onclick="return confirm('Regenerating the key will disconnect Social2WP until you update it in your dashboard. Continue?')">
-                        Regenerate API key
-                    </button>
-                </form>
+                <details style="margin-bottom:1.25rem;">
+                    <summary style="cursor:pointer;font-size:0.8125rem;color:#50575e;user-select:none;">Advanced: show API key</summary>
+                    <div style="margin-top:0.75rem;">
+                        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                            <code id="s2wp-api-key" style="background:#f6f7f7;border:1px solid #ddd;padding:0.35rem 0.75rem;border-radius:3px;font-size:13px;letter-spacing:0.04em;word-break:break-all;"><?php echo esc_html( $api_key ); ?></code>
+                            <button type="button" class="button" onclick="
+                                navigator.clipboard.writeText(document.getElementById('s2wp-api-key').innerText);
+                                this.textContent='Copied!';
+                                setTimeout(()=>this.textContent='Copy',2000);
+                            ">Copy</button>
+                        </div>
+                        <p class="description" style="margin-top:0.5rem;">This key is managed automatically. You only need it if you're connecting manually.</p>
+
+                        <form method="post" style="margin-top:0.75rem;">
+                            <?php wp_nonce_field( 'social2wp_regenerate_key' ); ?>
+                            <button type="submit" name="social2wp_regenerate" value="1" class="button"
+                                style="color:#b32d2e;"
+                                onclick="return confirm('Regenerating the key will disconnect Social2WP until you reconnect. Continue?')">
+                                Regenerate API key
+                            </button>
+                        </form>
+                    </div>
+                </details>
             </div>
 
             <h2>Post settings</h2>
