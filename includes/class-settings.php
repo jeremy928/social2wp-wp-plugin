@@ -6,6 +6,13 @@ class Social2WP_Settings {
         add_action( 'admin_menu', [ $this, 'add_menu' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_init', [ $this, 'handle_regenerate' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_scripts' ] );
+    }
+
+    public function enqueue_scripts( string $hook ): void {
+        if ( $hook !== 'settings_page_social2wp' ) return;
+        wp_enqueue_style( 'wp-color-picker' );
+        wp_enqueue_script( 'wp-color-picker' );
     }
 
     public function add_menu(): void {
@@ -20,10 +27,12 @@ class Social2WP_Settings {
 
     public function register_settings(): void {
         $options = [
-            [ 'social2wp_gallery_format',  'string',  'native', 'sanitize_text_field' ],
-            [ 'social2wp_publish_status',  'string',  'draft',  'sanitize_text_field' ],
-            [ 'social2wp_default_category','integer', 0,        'absint' ],
-            [ 'social2wp_post_author',     'integer', 1,        'absint' ],
+            [ 'social2wp_gallery_format',   'string',  'native',   'sanitize_text_field' ],
+            [ 'social2wp_publish_status',   'string',  'draft',    'sanitize_text_field' ],
+            [ 'social2wp_default_category', 'integer', 0,          'absint' ],
+            [ 'social2wp_post_author',      'integer', 1,          'absint' ],
+            [ 'social2wp_separator_style', 'string', 'default', 'sanitize_text_field' ],
+            [ 'social2wp_separator_color', 'string', '',      'sanitize_text_field' ],
         ];
 
         foreach ( $options as [ $name, $type, $default, $sanitize ] ) {
@@ -48,18 +57,32 @@ class Social2WP_Settings {
     public function render_page(): void {
         if ( ! current_user_can( 'manage_options' ) ) return;
 
-        $api_key        = get_option( 'social2wp_api_key', '' );
-        $masonry_ok     = class_exists( 'PGC_Simply_Gallery_Block' ) || function_exists( 'pgc_sgb_init' );
-        $format         = get_option( 'social2wp_gallery_format', 'native' );
-        $status         = get_option( 'social2wp_publish_status', 'draft' );
-        $category       = (int) get_option( 'social2wp_default_category', 0 );
-        $author         = (int) get_option( 'social2wp_post_author', 1 );
-        $categories     = get_categories( [ 'hide_empty' => false ] );
-        $users          = get_users( [ 'capability' => 'edit_posts' ] );
-        $site_url       = get_site_url();
-        $dashboard_url  = 'https://social2wp.com/dashboard';
-        $regenerated    = isset( $_GET['regenerated'] );
-        $connected      = isset( $_GET['connected'] );
+        $api_key         = get_option( 'social2wp_api_key', '' );
+        $masonry_ok      = class_exists( 'PGC_Simply_Gallery_Block' ) || function_exists( 'pgc_sgb_init' );
+        $format          = get_option( 'social2wp_gallery_format', 'native' );
+        $status          = get_option( 'social2wp_publish_status', 'draft' );
+        $category        = (int) get_option( 'social2wp_default_category', 0 );
+        $author          = (int) get_option( 'social2wp_post_author', 1 );
+        $separator_style = get_option( 'social2wp_separator_style', 'default' );
+        $separator_color = get_option( 'social2wp_separator_color', '' );
+        $categories      = get_categories( [ 'hide_empty' => false ] );
+        $users           = get_users( [ 'capability' => 'edit_posts' ] );
+        $site_url        = get_site_url();
+        $dashboard_url   = 'https://social2wp.com/dashboard';
+        $regenerated     = isset( $_GET['regenerated'] );
+        $connected       = isset( $_GET['connected'] );
+
+        // Collect registered separator block styles (theme/plugin additions)
+        $sep_styles = [];
+        if ( class_exists( 'WP_Block_Styles_Registry' ) ) {
+            $registered = WP_Block_Styles_Registry::get_instance()->get_registered_styles_for_block( 'core/separator' );
+            foreach ( $registered as $style ) {
+                if ( $style['name'] !== 'default' ) {
+                    $sep_styles[] = $style;
+                }
+            }
+        }
+
         ?>
         <div class="wrap">
             <h1>Social2WP</h1>
@@ -141,6 +164,42 @@ class Social2WP_Settings {
                                     <option value="masonry" disabled>Masonry — requires Simply Gallery Block plugin</option>
                                 <?php endif; ?>
                             </select>
+                            <p class="description">Social2WP currently supports Native WordPress Gallery and Simply Gallery Block. If you use a different gallery plugin, choose <strong>Native WordPress Gallery</strong> — many gallery plugins enhance the native block and will still apply their formatting automatically.</p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="social2wp_separator_style">Divider style</label></th>
+                        <td>
+                            <select name="social2wp_separator_style" id="social2wp_separator_style">
+                                <option value="none"    <?php selected( $separator_style, 'none' ); ?>>None</option>
+                                <option value="default" <?php selected( $separator_style, 'default' ); ?>>Default</option>
+                                <?php foreach ( $sep_styles as $style ) : ?>
+                                    <option value="<?php echo esc_attr( $style['name'] ); ?>" <?php selected( $separator_style, $style['name'] ); ?>>
+                                        <?php echo esc_html( $style['label'] ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">Divider inserted between the image and the caption in each synced post.</p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="social2wp_separator_color">Divider color</label></th>
+                        <td>
+                            <input type="text" name="social2wp_separator_color" id="social2wp_separator_color"
+                                value="<?php echo esc_attr( $separator_color ); ?>"
+                                data-default-color="">
+                            <p class="description" style="margin-top:0.375rem;">Pick a color for the divider, or click <strong>Clear</strong> to use the theme default.</p>
+                            <script>
+                            jQuery(document).ready(function($) {
+                                $('#social2wp_separator_color').wpColorPicker({
+                                    clear: function() {
+                                        $('#social2wp_separator_color').val('').trigger('change');
+                                    }
+                                });
+                            });
+                            </script>
                         </td>
                     </tr>
 

@@ -4,10 +4,14 @@ class Social2WP_Formatter {
 
     private string $format;
     private string $post_status;
+    private string $separator_style;
+    private string $separator_color;
 
     public function __construct() {
-        $this->format      = get_option( 'social2wp_gallery_format', 'native' );
-        $this->post_status = get_option( 'social2wp_publish_status', 'draft' );
+        $this->format          = get_option( 'social2wp_gallery_format', 'native' );
+        $this->post_status     = get_option( 'social2wp_publish_status', 'draft' );
+        $this->separator_style = get_option( 'social2wp_separator_style', 'default' );
+        $this->separator_color = get_option( 'social2wp_separator_color', '' );
 
         // Fall back to native if masonry plugin is gone
         if ( $this->format === 'masonry' && ! $this->masonry_available() ) {
@@ -88,7 +92,8 @@ class Social2WP_Formatter {
             $parts[] = $this->video_block( $id );
         }
 
-        $parts[] = '<!-- wp:separator --><hr class="wp-block-separator has-alpha-channel-opacity"/><!-- /wp:separator -->';
+        $sep = $this->separator_block();
+        if ( $sep ) $parts[] = $sep;
 
         if ( ! empty( $data['caption'] ) ) {
             $parts[] = $this->paragraph_blocks( $data['caption'] );
@@ -100,6 +105,27 @@ class Social2WP_Formatter {
         }
 
         return implode( "\n\n", array_filter( $parts ) );
+    }
+
+    private function separator_block(): string {
+        if ( $this->separator_style === 'none' ) return '';
+
+        $is_default = $this->separator_style === 'default';
+        $style_slug = $is_default ? '' : esc_attr( $this->separator_style );
+        $color_val  = $this->separator_color;
+        $has_color  = str_starts_with( $color_val, '#' );
+
+        $attrs = [];
+        if ( ! $is_default ) $attrs['className'] = "is-style-{$style_slug}";
+        if ( $has_color )    $attrs['style']     = [ 'color' => [ 'background' => $color_val ] ];
+        $attrs_json = empty( $attrs ) ? '' : ' ' . wp_json_encode( $attrs );
+
+        $classes = 'wp-block-separator has-alpha-channel-opacity';
+        if ( $has_color )    $classes .= ' has-background';
+        if ( ! $is_default ) $classes .= " is-style-{$style_slug}";
+        $inline = $has_color ? ' style="background-color:' . esc_attr( $color_val ) . ';color:' . esc_attr( $color_val ) . '"' : '';
+
+        return "<!-- wp:separator{$attrs_json} --><hr class=\"{$classes}\"{$inline}/><!-- /wp:separator -->";
     }
 
     private function native_gallery( array $ids ): string {
