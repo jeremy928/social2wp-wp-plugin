@@ -27,7 +27,7 @@ Companion plugin for Social2WP — automatically formats and publishes your sync
 
 1. Install and activate this plugin on your WordPress site
 2. Go to **Settings → Social2WP** and click **Connect to Social2WP**
-3. Create a Social2WP account and start your subscription
+3. Create a Social2WP account and start your free trial
 4. Connect your Instagram account through Facebook
 5. Social2WP handles the rest — your Instagram posts arrive here automatically
 
@@ -35,14 +35,14 @@ Images are downloaded from Instagram and stored in your WordPress Media Library.
 
 **Privacy:**
 
-This plugin receives data sent from the Social2WP service (social2wp.com). It does not independently collect or transmit any user data. For details on how Social2WP handles your Instagram data, see the [Social2WP Privacy Policy](https://social2wp.com/privacy).
+This plugin communicates with the Social2WP service (social2wp.com) in two ways: it receives post data sent by Social2WP when syncing, and it checks your account status with social2wp.com when an admin views the plugin settings page (sending only the API key generated during setup). No user-facing data is independently collected or transmitted by this plugin. For details on how Social2WP handles your Instagram data, see the [Social2WP Privacy Policy](https://social2wp.com/privacy) and [Terms of Use](https://social2wp.com/terms).
 
 == Installation ==
 
 1. Upload the `social2wp` folder to `/wp-content/plugins/`
 2. Activate through the Plugins screen in WordPress
 3. Go to **Settings → Social2WP** and click **Connect to Social2WP**
-4. Follow the prompts to create your account, start your subscription, and connect Instagram
+4. Follow the prompts to create your account, start your free trial, and connect Instagram
 
 == Frequently Asked Questions ==
 
@@ -64,7 +64,7 @@ Each synced post stores the original Instagram post ID and permalink as post met
 
 = Does this plugin send any data externally? =
 
-No. The plugin only receives data — it never initiates outbound requests on its own.
+Minimally. When an admin views the plugin settings page, the plugin sends a status request to social2wp.com (using the API key generated during setup) to check whether your account is active. No WordPress user data is included in that request. The plugin never initiates outbound requests outside of this status check and the initial connect flow.
 
 == Screenshots ==
 
