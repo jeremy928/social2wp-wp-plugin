@@ -6,12 +6,14 @@ class Social2WP_Formatter {
     private string $post_status;
     private string $separator_style;
     private string $separator_color;
+    private bool   $set_featured_image;
 
     public function __construct() {
-        $this->format          = get_option( 'social2wp_gallery_format', 'native' );
-        $this->post_status     = get_option( 'social2wp_publish_status', 'draft' );
-        $this->separator_style = get_option( 'social2wp_separator_style', 'default' );
-        $this->separator_color = get_option( 'social2wp_separator_color', '' );
+        $this->format              = get_option( 'social2wp_gallery_format', 'native' );
+        $this->post_status         = get_option( 'social2wp_publish_status', 'draft' );
+        $this->separator_style     = get_option( 'social2wp_separator_style', 'default' );
+        $this->separator_color     = get_option( 'social2wp_separator_color', '' );
+        $this->set_featured_image  = get_option( 'social2wp_set_featured_image', 'no' ) === 'yes';
 
         // Fall back to native if masonry plugin is gone
         if ( $this->format === 'masonry' && ! $this->masonry_available() ) {
@@ -67,7 +69,7 @@ class Social2WP_Formatter {
         update_post_meta( $post_id, '_social2wp_post_id', sanitize_text_field( $data['instagram_post_id'] ) );
         update_post_meta( $post_id, '_social2wp_permalink', esc_url_raw( $data['permalink'] ?? '' ) );
 
-        if ( ! empty( $image_ids ) ) {
+        if ( $this->set_featured_image && ! empty( $image_ids ) ) {
             set_post_thumbnail( $post_id, $image_ids[0] );
         }
 
@@ -110,22 +112,24 @@ class Social2WP_Formatter {
     private function separator_block(): string {
         if ( $this->separator_style === 'none' ) return '';
 
-        $is_default = $this->separator_style === 'default';
-        $style_slug = $is_default ? '' : esc_attr( $this->separator_style );
-        $color_val  = $this->separator_color;
-        $has_color  = str_starts_with( $color_val, '#' );
+        $is_default  = $this->separator_style === 'default';
+        $style_slug  = $is_default ? '' : esc_attr( $this->separator_style );
+        $color_slug  = $this->separator_color; // palette slug, e.g. "ast-global-color-0"
+        $has_color   = $color_slug !== '';
 
         $attrs = [];
-        if ( ! $is_default ) $attrs['className'] = "is-style-{$style_slug}";
-        if ( $has_color )    $attrs['style']     = [ 'color' => [ 'background' => $color_val ] ];
+        if ( ! $is_default ) $attrs['className']       = "is-style-{$style_slug}";
+        if ( $has_color )    $attrs['backgroundColor'] = $color_slug;
         $attrs_json = empty( $attrs ) ? '' : ' ' . wp_json_encode( $attrs );
 
         $classes = 'wp-block-separator has-alpha-channel-opacity';
-        if ( $has_color )    $classes .= ' has-background';
+        if ( $has_color ) {
+            $slug_esc  = esc_attr( $color_slug );
+            $classes  .= " has-text-color has-{$slug_esc}-color has-background has-{$slug_esc}-background-color";
+        }
         if ( ! $is_default ) $classes .= " is-style-{$style_slug}";
-        $inline = $has_color ? ' style="background-color:' . esc_attr( $color_val ) . ';color:' . esc_attr( $color_val ) . '"' : '';
 
-        return "<!-- wp:separator{$attrs_json} --><hr class=\"{$classes}\"{$inline}/><!-- /wp:separator -->";
+        return "<!-- wp:separator{$attrs_json} -->\n<hr class=\"{$classes}\"/>\n<!-- /wp:separator -->";
     }
 
     private function native_gallery( array $ids ): string {

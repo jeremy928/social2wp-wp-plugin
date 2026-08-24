@@ -11,8 +11,7 @@ class Social2WP_Settings {
 
     public function enqueue_scripts( string $hook ): void {
         if ( $hook !== 'settings_page_social2wp' ) return;
-        wp_enqueue_style( 'wp-color-picker' );
-        wp_enqueue_script( 'wp-color-picker' );
+        // no extra assets needed — palette picker is inline HTML/CSS
     }
 
     public function add_menu(): void {
@@ -31,8 +30,9 @@ class Social2WP_Settings {
             [ 'social2wp_publish_status',   'string',  'draft',    'sanitize_text_field' ],
             [ 'social2wp_default_category', 'integer', 0,          'absint' ],
             [ 'social2wp_post_author',      'integer', 1,          'absint' ],
-            [ 'social2wp_separator_style', 'string', 'default', 'sanitize_text_field' ],
-            [ 'social2wp_separator_color', 'string', '',      'sanitize_text_field' ],
+            [ 'social2wp_separator_style',       'string',  'default', 'sanitize_text_field' ],
+            [ 'social2wp_separator_color',       'string',  '',        'sanitize_text_field' ],
+            [ 'social2wp_set_featured_image',    'string',  'no',      'sanitize_text_field' ],
         ];
 
         foreach ( $options as [ $name, $type, $default, $sanitize ] ) {
@@ -88,6 +88,7 @@ class Social2WP_Settings {
         $author          = (int) get_option( 'social2wp_post_author', 1 );
         $separator_style = get_option( 'social2wp_separator_style', 'default' );
         $separator_color = get_option( 'social2wp_separator_color', '' );
+        if ( str_starts_with( $separator_color, '#' ) ) $separator_color = '';
         $connected_at    = get_option( 'social2wp_connected_at', '' );
         $categories      = get_categories( [ 'hide_empty' => false ] );
         $users           = get_users( [ 'capability' => 'edit_posts' ] );
@@ -106,6 +107,41 @@ class Social2WP_Settings {
                 }
             }
         }
+
+        // Collect theme color palette (slugs + hex values for swatch display)
+        $palette = [];
+        $global  = function_exists( 'wp_get_global_settings' ) ? wp_get_global_settings( [ 'color' ] ) : [];
+        if ( ! empty( $global['palette']['theme'] ) ) {
+            $palette = $global['palette']['theme'];
+        } else {
+            $support = get_theme_support( 'editor-color-palette' );
+            if ( ! empty( $support[0] ) ) {
+                foreach ( $support[0] as $c ) {
+                    $palette[] = [ 'slug' => $c['slug'], 'name' => $c['name'], 'color' => $c['color'] ];
+                }
+            }
+        }
+
+        // If colors are CSS variables (e.g. Astra), resolve them to hex for admin display
+        $css_var_map = [];
+        $astra_opt = get_option( 'astra-settings', [] );
+        if ( ! empty( $astra_opt['global-color-palette']['palette'] ) ) {
+            foreach ( $astra_opt['global-color-palette']['palette'] as $i => $hex ) {
+                if ( ! empty( $hex ) ) {
+                    $css_var_map[ '--ast-global-color-' . $i ] = $hex;
+                }
+            }
+        }
+        foreach ( $palette as &$swatch ) {
+            if ( str_starts_with( $swatch['color'], 'var(' ) ) {
+                preg_match( '/var\(\s*([^)]+)\s*\)/', $swatch['color'], $m );
+                $var = trim( $m[1] ?? '' );
+                if ( isset( $css_var_map[ $var ] ) ) {
+                    $swatch['color'] = $css_var_map[ $var ];
+                }
+            }
+        }
+        unset( $swatch );
 
         ?>
         <div class="wrap">
@@ -136,8 +172,8 @@ class Social2WP_Settings {
                 <ol style="color:#50575e;font-size:0.9rem;line-height:2;padding-left:1.25rem;margin:0;">
                     <li>Click <strong>Connect to Social2WP</strong> below</li>
                     <li>Create a Social2WP account (or sign in if you already have one)</li>
-                    <li>Start your subscription</li>
                     <li>Connect your Instagram account through Facebook</li>
+                    <li>Start your 30-day free trial</li>
                     <li>You're done — your WordPress site will be linked automatically</li>
                 </ol>
                 <p style="margin-top:0.75rem;margin-bottom:0;font-size:0.8125rem;">
@@ -239,19 +275,87 @@ class Social2WP_Settings {
                     <tr>
                         <th scope="row"><label for="social2wp_separator_color">Divider color</label></th>
                         <td>
-                            <input type="text" name="social2wp_separator_color" id="social2wp_separator_color"
-                                value="<?php echo esc_attr( $separator_color ); ?>"
-                                data-default-color="">
-                            <p class="description" style="margin-top:0.375rem;">Pick a color for the divider, or click <strong>Clear</strong> to use the theme default.</p>
+                            <?php if ( ! empty( $palette ) ) : ?>
+                            <div id="s2wp-swatches" style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;margin-bottom:0.5rem;">
+                                <span class="s2wp-swatch" data-slug="" role="button" tabindex="0"
+                                    style="display:inline-flex;align-items:center;padding:0 0.5rem;height:26px;font-size:0.8125rem;border-radius:3px;border:2px solid #ccc;background:#f6f7f7;cursor:pointer;">
+                                    None
+                                </span>
+                                <?php foreach ( $palette as $swatch ) :
+                                    $slug  = esc_attr( $swatch['slug'] );
+                                    $hex   = esc_attr( $swatch['color'] );
+                                    $label = esc_html( $swatch['name'] );
+                                ?>
+                                <span class="s2wp-swatch" data-slug="<?php echo $slug; ?>"
+                                    role="button" tabindex="0"
+                                    title="<?php echo $label; ?> (<?php echo $slug; ?>)"
+                                    style="display:inline-block;width:26px;height:26px;border-radius:4px;border:2px solid #ccc;background:<?php echo $hex; ?>;cursor:pointer;"></span>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php endif; ?>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <input type="text" name="social2wp_separator_color" id="social2wp_separator_color"
+                                    value="<?php echo esc_attr( $separator_color ); ?>"
+                                    placeholder="e.g. ast-global-color-0"
+                                    style="font-family:monospace;width:220px;" class="regular-text">
+                                <button type="button" id="s2wp-clear-color" class="button">Clear</button>
+                            </div>
+                            <p class="description" style="margin-top:0.375rem;">
+                                <?php if ( ! empty( $palette ) ) : ?>
+                                Click a swatch to select a theme color, or type the color slug directly. Leave blank for the theme default.
+                                <?php else : ?>
+                                Type a theme color slug (e.g. <code>ast-global-color-0</code>), or leave blank for the theme default. The slug must match a color registered by your theme.
+                                <?php endif; ?>
+                            </p>
+                            <details style="margin-top:0.5rem;">
+                                <summary style="cursor:pointer;font-size:0.8125rem;color:#2271b1;text-decoration:underline;text-underline-offset:2px;list-style:none;">Colors not showing correctly?</summary>
+                                <div style="margin-top:0.625rem;padding:0.75rem;background:#f6f7f7;border:1px solid #ddd;border-radius:3px;font-size:0.8125rem;line-height:1.6;max-width:480px;">
+                                    <p style="margin:0 0 0.5rem;"><strong>How to find your color slug:</strong></p>
+                                    <ol style="margin:0 0 0.75rem;padding-left:1.25rem;">
+                                        <li>Open any post in the block editor</li>
+                                        <li>Add a <strong>Separator</strong> block and choose the color you want from its sidebar panel</li>
+                                        <li>Open the block editor's <strong>Options menu</strong> (⋮ top-right) and choose <strong>Code editor</strong></li>
+                                        <li>Find the separator comment — the slug appears as <code>backgroundColor:"your-slug-here"</code></li>
+                                    </ol>
+                                    <p style="margin:0;">Type that slug into the field above. If swatches aren't loading for your theme, <a href="mailto:support@social2wp.com?subject=Color+swatches+not+loading&body=Theme+in+use:+%0AWordPress+version:+%0A" style="color:#2271b1;">let us know</a> and we'll add support for it.</p>
+                                </div>
+                            </details>
                             <script>
-                            jQuery(document).ready(function($) {
-                                $('#social2wp_separator_color').wpColorPicker({
-                                    clear: function() {
-                                        $('#social2wp_separator_color').val('').trigger('change');
-                                    }
+                            (function() {
+                                var input   = document.getElementById('social2wp_separator_color');
+                                var swatches = document.querySelectorAll('.s2wp-swatch');
+                                function highlight(slug) {
+                                    swatches.forEach(function(b) {
+                                        b.style.borderColor = b.dataset.slug === slug ? '#0073aa' : '#ccc';
+                                        b.style.outline = b.dataset.slug === slug ? '1px solid #0073aa' : 'none';
+                                    });
+                                }
+                                highlight(input.value);
+                                swatches.forEach(function(btn) {
+                                    btn.addEventListener('click', function() {
+                                        input.value = this.dataset.slug;
+                                        highlight(this.dataset.slug);
+                                    });
                                 });
-                            });
+                                document.getElementById('s2wp-clear-color').addEventListener('click', function() {
+                                    input.value = '';
+                                    highlight('');
+                                });
+                                input.addEventListener('input', function() { highlight(this.value); });
+                            })();
                             </script>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Featured image</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="social2wp_set_featured_image" value="yes"
+                                    <?php checked( get_option( 'social2wp_set_featured_image', 'no' ), 'yes' ); ?>>
+                                Set the first image as the featured image on each synced post
+                            </label>
+                            <p class="description">When unchecked, posts are created without a featured image.</p>
                         </td>
                     </tr>
 

@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.1.0
+Stable tag: 1.1.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,6 +72,17 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 
 == Changelog ==
 
+= 1.1.3 =
+* Fixed separator color — replaced hex color picker with theme palette swatch picker; colors now use CSS classes instead of inline styles, which are stripped by some themes (including Astra)
+
+= 1.1.2 =
+* Added featured image setting — choose whether the first image is set as the featured image on each synced post (defaults to off)
+* Fixed separator block rendering — removed redundant color property and added proper newlines to block markup
+
+= 1.1.1 =
+* Updated setup instructions to reflect new onboarding order — connect Instagram before starting trial
+* Updated privacy section to accurately describe outbound status check
+
 = 1.1.0 =
 * Added one-click Connect to Social2WP flow — no manual API key or endpoint setup needed
 * Added how-to-connect instructions directly on the settings page
@@ -83,6 +94,9 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.1.1 =
+Minor readme and instructions update. No code changes.
 
 = 1.1.0 =
 Adds one-click connect flow and new divider style and color options. Existing connections are not affected.
