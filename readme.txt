@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,11 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 1. Settings page showing gallery format, post status, category, and author options
 
 == Changelog ==
+
+= 1.1.4 =
+* Security: removed edit_posts capability fallback from API key authentication — API key is now the only accepted credential
+* Security: capped media arrays to 20 items in create_post() to prevent unbounded attachment uploads
+* Fixed: temp file cleanup failure now logged instead of silently suppressed
 
 = 1.1.3 =
 * Fixed separator color — replaced hex color picker with theme palette swatch picker; colors now use CSS classes instead of inline styles, which are stripped by some themes (including Astra)

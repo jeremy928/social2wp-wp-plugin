@@ -54,8 +54,7 @@ class Social2WP_API {
             return true;
         }
 
-        // Fallback: allow WordPress admins to call the endpoint directly
-        return current_user_can( 'edit_posts' );
+        return false;
     }
 
     public function get_status( WP_REST_Request $request ): WP_REST_Response {
@@ -73,7 +72,7 @@ class Social2WP_API {
 
     private function available_formats(): array {
         $formats = [ 'native' ];
-        if ( class_exists( 'PGC_Simply_Gallery_Block' ) || function_exists( 'pgc_sgb_init' ) ) {
+        if ( Social2WP_Formatter::masonry_available() ) {
             $formats[] = 'masonry';
         }
         return $formats;

@@ -19,7 +19,8 @@ $includes = @(
     "readme.txt",
     "includes\class-api.php",
     "includes\class-formatter.php",
-    "includes\class-settings.php"
+    "includes\class-settings.php",
+    "assets\social2wp-icon.png"
 )
 
 # Remove old ZIP if it exists

@@ -6,12 +6,6 @@ class Social2WP_Settings {
         add_action( 'admin_menu', [ $this, 'add_menu' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_init', [ $this, 'handle_regenerate' ] );
-        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_scripts' ] );
-    }
-
-    public function enqueue_scripts( string $hook ): void {
-        if ( $hook !== 'settings_page_social2wp' ) return;
-        // no extra assets needed — palette picker is inline HTML/CSS
     }
 
     public function add_menu(): void {
@@ -81,7 +75,7 @@ class Social2WP_Settings {
 
         $account_status  = $this->get_account_status();
         $api_key         = get_option( 'social2wp_api_key', '' );
-        $masonry_ok      = class_exists( 'PGC_Simply_Gallery_Block' ) || function_exists( 'pgc_sgb_init' );
+        $masonry_ok      = Social2WP_Formatter::masonry_available();
         $format          = get_option( 'social2wp_gallery_format', 'native' );
         $status          = get_option( 'social2wp_publish_status', 'draft' );
         $category        = (int) get_option( 'social2wp_default_category', 0 );
@@ -145,7 +139,11 @@ class Social2WP_Settings {
 
         ?>
         <div class="wrap">
-            <h1>Social2WP</h1>
+            <h1 style="display:flex;align-items:center;gap:0.6rem;">
+                <img src="<?php echo esc_url( plugins_url( 'assets/social2wp-icon.png', dirname( __FILE__ ) ) ); ?>"
+                     alt="" width="36" height="36" style="border-radius:8px;">
+                Social2WP
+            </h1>
 
             <?php if ( $account_status === 'past_due' ) : ?>
             <div class="notice notice-error" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.75rem 1rem;">

@@ -16,7 +16,7 @@ class Social2WP_Formatter {
         $this->set_featured_image  = get_option( 'social2wp_set_featured_image', 'no' ) === 'yes';
 
         // Fall back to native if masonry plugin is gone
-        if ( $this->format === 'masonry' && ! $this->masonry_available() ) {
+        if ( $this->format === 'masonry' && ! self::masonry_available() ) {
             $this->format = 'native';
         }
     }
@@ -25,14 +25,14 @@ class Social2WP_Formatter {
         $image_ids = [];
         $video_ids = [];
 
-        foreach ( $data['images'] ?? [] as $url ) {
+        foreach ( array_slice( $data['images'] ?? [], 0, 20 ) as $url ) {
             $id = $this->sideload( $url );
             if ( ! is_wp_error( $id ) ) {
                 $image_ids[] = $id;
             }
         }
 
-        foreach ( $data['videos'] ?? [] as $url ) {
+        foreach ( array_slice( $data['videos'] ?? [], 0, 20 ) as $url ) {
             $id = $this->sideload( $url, 'video/mp4' );
             if ( ! is_wp_error( $id ) ) {
                 $video_ids[] = $id;
@@ -47,6 +47,7 @@ class Social2WP_Formatter {
             ? mb_substr( $first_line, 0, 100 )
             : 'Instagram — ' . date( 'F j, Y', strtotime( $data['timestamp'] ?? 'now' ) );
 
+        $ts       = strtotime( $data['timestamp'] ?? 'now' );
         $category = (int) get_option( 'social2wp_default_category', 0 );
         $author   = (int) get_option( 'social2wp_post_author', 1 );
 
@@ -55,8 +56,8 @@ class Social2WP_Formatter {
             'post_content'  => $content,
             'post_status'   => $this->post_status,
             'post_author'   => $author,
-            'post_date'     => date( 'Y-m-d H:i:s', strtotime( $data['timestamp'] ?? 'now' ) ),
-            'post_date_gmt' => gmdate( 'Y-m-d H:i:s', strtotime( $data['timestamp'] ?? 'now' ) ),
+            'post_date'     => date( 'Y-m-d H:i:s', $ts ),
+            'post_date_gmt' => gmdate( 'Y-m-d H:i:s', $ts ),
         ];
 
         if ( $category > 0 ) {
@@ -219,12 +220,12 @@ class Social2WP_Formatter {
         ];
 
         $id = media_handle_sideload( $file, 0 );
-        @unlink( $tmp );
+        if ( ! @unlink( $tmp ) ) { error_log( 'Social2WP: failed to unlink temp file ' . $tmp ); }
 
         return $id;
     }
 
-    private function masonry_available(): bool {
+    public static function masonry_available(): bool {
         return class_exists( 'PGC_Simply_Gallery_Block' ) || function_exists( 'pgc_sgb_init' );
     }
 }
