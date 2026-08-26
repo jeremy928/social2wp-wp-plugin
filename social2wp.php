@@ -3,7 +3,7 @@
  * Plugin Name: Social2WP
  * Plugin URI:  https://social2wp.com
  * Description: Companion plugin for Social2WP — automatically formats and publishes your synced Instagram posts your way.
- * Version:     1.1.4
+ * Version:     1.1.7
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author:      Carroll Wood Integrated Services LLC
@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SOCIAL2WP_VERSION', '1.1.4' );
+define( 'SOCIAL2WP_VERSION', '1.1.7' );
 define( 'SOCIAL2WP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SOCIAL2WP_URL', plugin_dir_url( __FILE__ ) );
 
@@ -42,6 +42,10 @@ add_action( 'init', function () {
 add_action( 'admin_post_social2wp_connect', function () {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Unauthorized' );
     check_admin_referer( 'social2wp_connect' );
+
+    if ( ! get_option( 'social2wp_api_key' ) ) {
+        update_option( 'social2wp_api_key', wp_generate_password( 32, false ) );
+    }
 
     $token = wp_generate_password( 32, false );
     update_option( 'social2wp_connect_token', $token );

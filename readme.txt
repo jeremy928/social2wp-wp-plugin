@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.1.4
+Stable tag: 1.1.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,15 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 1. Settings page showing gallery format, post status, category, and author options
 
 == Changelog ==
+
+= 1.1.7 =
+* Fixed: paragraph line breaks generated as XHTML <br /> instead of HTML5 <br>, causing Gutenberg to highlight affected text in the draft editor
+
+= 1.1.6 =
+* Fixed: masonry gallery block serialized with inner HTML instead of self-closing format, causing "Block contains unexpected or invalid content" on every synced post
+
+= 1.1.5 =
+* Fixed: reconnecting after a plugin-side disconnect failed because the API key was not regenerated before starting the connect flow
 
 = 1.1.4 =
 * Security: removed edit_posts capability fallback from API key authentication — API key is now the only accepted credential

@@ -6,6 +6,7 @@ class Social2WP_Settings {
         add_action( 'admin_menu', [ $this, 'add_menu' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_init', [ $this, 'handle_regenerate' ] );
+        add_action( 'admin_init', [ $this, 'handle_disconnect' ] );
     }
 
     public function add_menu(): void {
@@ -38,6 +39,27 @@ class Social2WP_Settings {
         }
     }
 
+    public function handle_disconnect(): void {
+        if ( ! isset( $_POST['social2wp_disconnect'] ) ) return;
+        if ( ! current_user_can( 'manage_options' ) ) return;
+        check_admin_referer( 'social2wp_disconnect' );
+
+        $api_key = get_option( 'social2wp_api_key', '' );
+        if ( $api_key ) {
+            wp_remote_post( 'https://social2wp.com/api/plugin-disconnect', [
+                'headers' => [ 'X-API-Key' => $api_key ],
+                'timeout' => 5,
+            ] );
+        }
+
+        delete_option( 'social2wp_connected_at' );
+        delete_option( 'social2wp_api_key' );
+        delete_transient( 'social2wp_account_status' );
+
+        wp_redirect( admin_url( 'options-general.php?page=social2wp&disconnected=1' ) );
+        exit;
+    }
+
     public function handle_regenerate(): void {
         if ( ! isset( $_POST['social2wp_regenerate'] ) ) return;
         if ( ! current_user_can( 'manage_options' ) ) return;
@@ -60,9 +82,22 @@ class Social2WP_Settings {
             'timeout' => 5,
         ] );
 
-        if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
+        if ( is_wp_error( $response ) ) return 'unknown';
+
+        $code = wp_remote_retrieve_response_code( $response );
+
+        if ( $code === 401 ) {
+            $body = json_decode( wp_remote_retrieve_body( $response ), true );
+            if ( ( $body['error'] ?? '' ) === 'invalid_key' ) {
+                // Server no longer recognises this key — site was removed from the app side.
+                delete_option( 'social2wp_connected_at' );
+                delete_option( 'social2wp_api_key' );
+                delete_transient( 'social2wp_account_status' );
+            }
             return 'unknown';
         }
+
+        if ( $code !== 200 ) return 'unknown';
 
         $body   = json_decode( wp_remote_retrieve_body( $response ), true );
         $status = $body['status'] ?? 'unknown';
@@ -90,6 +125,7 @@ class Social2WP_Settings {
         $dashboard_url   = 'https://social2wp.com/dashboard';
         $regenerated     = isset( $_GET['regenerated'] );
         $connected       = isset( $_GET['connected'] );
+        $disconnected    = isset( $_GET['disconnected'] );
 
         // Collect registered separator block styles (theme/plugin additions)
         $sep_styles = [];
@@ -161,6 +197,10 @@ class Social2WP_Settings {
             <div class="notice notice-success is-dismissible"><p>Connected! Your WordPress site is now linked to Social2WP.</p></div>
             <?php endif; ?>
 
+            <?php if ( $disconnected ) : ?>
+            <div class="notice notice-success is-dismissible"><p>Disconnected. Social2WP has been removed from this site.</p></div>
+            <?php endif; ?>
+
             <?php if ( $regenerated ) : ?>
             <div class="notice notice-success is-dismissible"><p>API key regenerated. Update your Social2WP dashboard with the new key.</p></div>
             <?php endif; ?>
@@ -199,11 +239,18 @@ class Social2WP_Settings {
                 <?php endif; ?>
 
                 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+                    <?php if ( $connected_at ) : ?>
+                    <form method="post" onsubmit="return confirm('Disconnect this site from Social2WP? Syncing will stop until you reconnect.')">
+                        <?php wp_nonce_field( 'social2wp_disconnect' ); ?>
+                        <button type="submit" name="social2wp_disconnect" value="1" class="button" style="color:#b32d2e;">Disconnect from Social2WP</button>
+                    </form>
+                    <?php else : ?>
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                         <input type="hidden" name="action" value="social2wp_connect">
                         <?php wp_nonce_field( 'social2wp_connect' ); ?>
                         <button type="submit" class="button button-primary">Connect to Social2WP</button>
                     </form>
+                    <?php endif; ?>
                     <a href="<?php echo esc_url( $dashboard_url ); ?>" class="button" target="_blank" rel="noopener">
                         Go to Social2WP Dashboard ↗
                     </a>

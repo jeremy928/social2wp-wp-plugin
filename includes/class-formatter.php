@@ -150,20 +150,21 @@ class Social2WP_Formatter {
         $columns    = min( 4, count( $ids ) );
         $gallery_id = substr( md5( implode( ',', $ids ) ), 0, 8 );
         $images_arr = [];
-        $inner      = '';
 
         foreach ( $ids as $id ) {
-            $url    = wp_get_attachment_url( $id );
-            $meta   = wp_get_attachment_metadata( $id );
+            $url  = wp_get_attachment_url( $id );
+            $meta = wp_get_attachment_metadata( $id );
             $images_arr[] = [
                 'id'     => $id,
                 'url'    => $url,
                 'width'  => $meta['width'] ?? 0,
                 'height' => $meta['height'] ?? 0,
             ];
-            $inner .= "<div class=\"sgb-item\" data-item-id=\"{$id}\"><figure><a href=\"{$url}\"><img src=\"{$url}\" alt=\"\" data-id=\"{$id}\" class=\"wp-image-{$id}\"/></a></figure></div>";
         }
 
+        // pgcsimplygalleryblock/masonry is a dynamic block (server-side render).
+        // Dynamic blocks must use self-closing comment syntax — no inner HTML.
+        // 'useClobalSettings' matches the typo in the Simply Gallery Block plugin.
         $attr = wp_json_encode( [
             'collectionColumns'              => $columns,
             'collectionThumbRecomendedWidth' => 150,
@@ -171,10 +172,11 @@ class Social2WP_Formatter {
             'galleryType'                    => 'pgc_sgb_masonry',
             'galleryId'                      => $gallery_id,
             'images'                         => $images_arr,
-            'useGlobalSettings'              => true,
+            'useClobalSettings'              => true,
+            'isIndexing'                     => false,
         ] );
 
-        return "<!-- wp:pgcsimplygalleryblock/masonry {$attr} -->\n<div class=\"wp-block-pgcsimplygalleryblock-masonry simpLy-gallery-freedom-block\" data-gallery-id=\"simpLy\"><div class=\"sgb-gallery\">{$inner}</div></div>\n<!-- /wp:pgcsimplygalleryblock/masonry -->";
+        return "<!-- wp:pgcsimplygalleryblock/masonry {$attr} /-->";
     }
 
     private function video_block( int $id ): string {
@@ -185,7 +187,7 @@ class Social2WP_Formatter {
     private function paragraph_blocks( string $caption ): string {
         $paragraphs = array_filter( array_map( 'trim', explode( "\n\n", $caption ) ) );
         $blocks     = array_map( function ( $p ) {
-            $html = nl2br( esc_html( $p ) );
+            $html = str_replace( '<br />', '<br>', nl2br( esc_html( $p ) ) );
             return "<!-- wp:paragraph -->\n<p>{$html}</p>\n<!-- /wp:paragraph -->";
         }, $paragraphs );
         return implode( "\n\n", $blocks );
