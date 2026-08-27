@@ -28,6 +28,7 @@ class Social2WP_Settings {
             [ 'social2wp_separator_style',       'string',  'default', 'sanitize_text_field' ],
             [ 'social2wp_separator_color',       'string',  '',        'sanitize_text_field' ],
             [ 'social2wp_set_featured_image',    'string',  'no',      'sanitize_text_field' ],
+            [ 'social2wp_font_size',             'string',  '',        'sanitize_text_field' ],
         ];
 
         foreach ( $options as [ $name, $type, $default, $sanitize ] ) {
@@ -118,6 +119,7 @@ class Social2WP_Settings {
         $separator_style = get_option( 'social2wp_separator_style', 'default' );
         $separator_color = get_option( 'social2wp_separator_color', '' );
         if ( str_starts_with( $separator_color, '#' ) ) $separator_color = '';
+        $font_size       = get_option( 'social2wp_font_size', '' );
         $connected_at    = get_option( 'social2wp_connected_at', '' );
         $categories      = get_categories( [ 'hide_empty' => false ] );
         $users           = get_users( [ 'capability' => 'edit_posts' ] );
@@ -401,6 +403,20 @@ class Social2WP_Settings {
                                 Set the first image as the featured image on each synced post
                             </label>
                             <p class="description">When unchecked, posts are created without a featured image.</p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="social2wp_font_size">Caption font size</label></th>
+                        <td>
+                            <select name="social2wp_font_size" id="social2wp_font_size">
+                                <option value=""        <?php selected( $font_size, '' ); ?>>Theme default</option>
+                                <option value="small"   <?php selected( $font_size, 'small' ); ?>>Small</option>
+                                <option value="medium"  <?php selected( $font_size, 'medium' ); ?>>Medium</option>
+                                <option value="large"   <?php selected( $font_size, 'large' ); ?>>Large</option>
+                                <option value="x-large" <?php selected( $font_size, 'x-large' ); ?>>Extra Large</option>
+                            </select>
+                            <p class="description">Font size applied to caption text in synced posts. The exact size depends on your theme.</p>
                         </td>
                     </tr>
 

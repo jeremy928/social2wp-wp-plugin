@@ -7,6 +7,7 @@ class Social2WP_Formatter {
     private string $separator_style;
     private string $separator_color;
     private bool   $set_featured_image;
+    private string $font_size;
 
     public function __construct() {
         $this->format              = get_option( 'social2wp_gallery_format', 'native' );
@@ -14,6 +15,7 @@ class Social2WP_Formatter {
         $this->separator_style     = get_option( 'social2wp_separator_style', 'default' );
         $this->separator_color     = get_option( 'social2wp_separator_color', '' );
         $this->set_featured_image  = get_option( 'social2wp_set_featured_image', 'no' ) === 'yes';
+        $this->font_size           = get_option( 'social2wp_font_size', '' );
 
         // Fall back to native if masonry plugin is gone
         if ( $this->format === 'masonry' && ! self::masonry_available() ) {
@@ -186,9 +188,23 @@ class Social2WP_Formatter {
 
     private function paragraph_blocks( string $caption ): string {
         $paragraphs = array_filter( array_map( 'trim', explode( "\n\n", $caption ) ) );
-        $blocks     = array_map( function ( $p ) {
+        $fs         = $this->font_size;
+        $attr       = $fs ? " {\"fontSize\":\"{$fs}\"}" : '';
+        $class      = $fs ? " class=\"has-{$fs}-font-size\"" : '';
+        $blocks     = array_map( function ( $p ) use ( $attr, $class ) {
             $html = str_replace( '<br />', '<br>', nl2br( esc_html( $p ) ) );
-            return "<!-- wp:paragraph -->\n<p>{$html}</p>\n<!-- /wp:paragraph -->";
+            // Link hashtags and @mentions to Instagram.
+            $html = preg_replace(
+                '/(?<![&\w])#([a-zA-Z0-9_]+)/',
+                '<a href="https://www.instagram.com/explore/tags/$1/" target="_blank" rel="noopener noreferrer">#$1</a>',
+                $html
+            );
+            $html = preg_replace(
+                '/(?<!\w)@([a-zA-Z0-9_.]+)/',
+                '<a href="https://www.instagram.com/$1/" target="_blank" rel="noopener noreferrer">@$1</a>',
+                $html
+            );
+            return "<!-- wp:paragraph{$attr} -->\n<p{$class}>{$html}</p>\n<!-- /wp:paragraph -->";
         }, $paragraphs );
         return implode( "\n\n", $blocks );
     }

@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.1.7
+Stable tag: 1.2.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -71,6 +71,12 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 1. Settings page showing gallery format, post status, category, and author options
 
 == Changelog ==
+
+= 1.2.1 =
+* Added: caption font size setting — choose Small, Medium, Large, Extra Large, or Theme default
+
+= 1.2.0 =
+* Added: hashtags and @mentions in synced captions are now linked to their Instagram pages automatically
 
 = 1.1.7 =
 * Fixed: paragraph line breaks generated as XHTML <br /> instead of HTML5 <br>, causing Gutenberg to highlight affected text in the draft editor
