@@ -239,7 +239,8 @@ class Social2WP_Settings {
                     <?php if ( $connected_at ) : ?>
                     <form id="s2wp-disconnect-form" method="post">
                         <?php wp_nonce_field( 'social2wp_disconnect' ); ?>
-                        <button type="submit" name="social2wp_disconnect" value="1" class="button" style="color:#b32d2e;">Disconnect from Social2WP</button>
+                        <input type="hidden" name="social2wp_disconnect" value="1">
+                        <button type="submit" class="button" style="color:#b32d2e;">Disconnect from Social2WP</button>
                     </form>
                     <script>
                     document.getElementById('s2wp-disconnect-form').addEventListener('submit', function(e) {

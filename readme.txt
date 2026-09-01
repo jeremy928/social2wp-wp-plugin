@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.5.1
+Stable tag: 1.5.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,6 +72,9 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 
 == Changelog ==
 
+= 1.5.2 =
+* Fixed: disconnect button now reliably submits the form after the remote disconnect call completes
+
 = 1.5.1 =
 * Fixed: disconnecting the plugin now reliably removes the site from Social2WP — previously the server-side disconnect call was silently blocked
 
@@ -135,6 +138,9 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.5.2 =
+Fixes the disconnect button not responding after the 1.5.1 update. Recommended for all users.
 
 = 1.5.1 =
 Fixes disconnect not reliably removing the site from Social2WP. Recommended for all users.
