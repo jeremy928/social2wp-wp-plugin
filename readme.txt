@@ -62,6 +62,10 @@ Go to Settings → Social2WP in your WordPress admin and click **Connect to Soci
 
 Each synced post stores the original Instagram post ID and permalink as post meta (`_social2wp_post_id` and `_social2wp_permalink`). This is used to prevent duplicate posts. Images are saved to your WordPress Media Library like any other uploaded file.
 
+= How do I report a bug or request a feature? =
+
+Open an issue at [github.com/jeremy928/social2wp-wp-plugin](https://github.com/jeremy928/social2wp-wp-plugin/issues) or use the contact link on your Social2WP dashboard at social2wp.com.
+
 = Does this plugin send any data externally? =
 
 Minimally. When an admin views the plugin settings page, the plugin sends a status request to social2wp.com (using the API key generated during setup) to check whether your account is active. No WordPress user data is included in that request. The plugin never initiates outbound requests outside of this status check and the initial connect flow.
