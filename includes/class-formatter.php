@@ -24,24 +24,38 @@ class Social2WP_Formatter {
     }
 
     public function create_post( array $data ): int|WP_Error {
-        $image_ids = [];
-        $video_ids = [];
+        // Build an ordered list of {id, type} preserving Instagram carousel order.
+        // New worker sends `media` as [{url, type}]; older versions send separate `images`/`videos`.
+        $media_items = [];
 
-        foreach ( array_slice( $data['images'] ?? [], 0, 20 ) as $url ) {
-            $id = $this->sideload( $url );
-            if ( ! is_wp_error( $id ) ) {
-                $image_ids[] = $id;
+        if ( ! empty( $data['media'] ) ) {
+            foreach ( array_slice( $data['media'], 0, 20 ) as $item ) {
+                $url  = $item['url'] ?? '';
+                $type = strtoupper( $item['type'] ?? 'IMAGE' );
+                if ( ! $url ) continue;
+                $mime = $type === 'VIDEO' ? 'video/mp4' : 'image/jpeg';
+                $id   = $this->sideload( $url, $mime );
+                if ( ! is_wp_error( $id ) ) {
+                    $media_items[] = [ 'id' => $id, 'type' => $type ];
+                }
+            }
+        } else {
+            // Backward compat: old payload had separate images/videos arrays (order lost)
+            foreach ( array_slice( $data['images'] ?? [], 0, 20 ) as $url ) {
+                $id = $this->sideload( $url );
+                if ( ! is_wp_error( $id ) ) {
+                    $media_items[] = [ 'id' => $id, 'type' => 'IMAGE' ];
+                }
+            }
+            foreach ( array_slice( $data['videos'] ?? [], 0, 20 ) as $url ) {
+                $id = $this->sideload( $url, 'video/mp4' );
+                if ( ! is_wp_error( $id ) ) {
+                    $media_items[] = [ 'id' => $id, 'type' => 'VIDEO' ];
+                }
             }
         }
 
-        foreach ( array_slice( $data['videos'] ?? [], 0, 20 ) as $url ) {
-            $id = $this->sideload( $url, 'video/mp4' );
-            if ( ! is_wp_error( $id ) ) {
-                $video_ids[] = $id;
-            }
-        }
-
-        $content = $this->build_content( $image_ids, $video_ids, $data );
+        $content = $this->build_content( $media_items, $data );
 
         $caption    = $data['caption'] ?? '';
         $first_line = trim( strtok( $caption, "\n" ) );
@@ -72,8 +86,13 @@ class Social2WP_Formatter {
         update_post_meta( $post_id, '_social2wp_post_id', sanitize_text_field( $data['instagram_post_id'] ) );
         update_post_meta( $post_id, '_social2wp_permalink', esc_url_raw( $data['permalink'] ?? '' ) );
 
-        if ( $this->set_featured_image && ! empty( $image_ids ) ) {
-            set_post_thumbnail( $post_id, $image_ids[0] );
+        if ( $this->set_featured_image ) {
+            foreach ( $media_items as $item ) {
+                if ( $item['type'] === 'IMAGE' ) {
+                    set_post_thumbnail( $post_id, $item['id'] );
+                    break;
+                }
+            }
         }
 
         return $post_id;
@@ -83,18 +102,30 @@ class Social2WP_Formatter {
     // Block builders
     // -------------------------------------------------------------------------
 
-    private function build_content( array $image_ids, array $video_ids, array $data ): string {
+    private function build_content( array $media_items, array $data ): string {
         $parts = [];
 
-        if ( ! empty( $image_ids ) ) {
-            $parts[] = match ( $this->format ) {
-                'masonry' => $this->masonry_block( $image_ids ),
-                default   => $this->native_gallery( $image_ids ),
-            };
-        }
-
-        foreach ( $video_ids as $id ) {
-            $parts[] = $this->video_block( $id );
+        if ( ! empty( $media_items ) ) {
+            if ( $this->format === 'masonry' ) {
+                // Simply Gallery supports mixed images and videos in one block.
+                $parts[] = $this->masonry_block( $media_items );
+            } else {
+                // Native gallery only handles images; videos get their own blocks.
+                $image_ids = array_column(
+                    array_filter( $media_items, fn( $m ) => $m['type'] === 'IMAGE' ),
+                    'id'
+                );
+                $video_ids = array_column(
+                    array_filter( $media_items, fn( $m ) => $m['type'] === 'VIDEO' ),
+                    'id'
+                );
+                if ( ! empty( $image_ids ) ) {
+                    $parts[] = $this->native_gallery( $image_ids );
+                }
+                foreach ( $video_ids as $id ) {
+                    $parts[] = $this->video_block( $id );
+                }
+            }
         }
 
         $sep = $this->separator_block();
@@ -148,20 +179,153 @@ class Social2WP_Formatter {
         return "<!-- wp:gallery {\"columns\":{$columns},\"linkTo\":\"none\",\"ids\":[{$ids_json}]} -->\n<figure class=\"wp-block-gallery has-nested-images columns-{$columns} is-cropped\">\n{$inner}\n</figure>\n<!-- /wp:gallery -->";
     }
 
-    private function masonry_block( array $ids ): string {
+    // -------------------------------------------------------------------------
+    // Gallery conversion (one-time migration of existing synced posts)
+    // -------------------------------------------------------------------------
+
+    // Converts a single post from any prior gallery format to the masonry block.
+    // Returns 'updated', 'already_masonry', or 'no_media'.
+    public function convert_post_to_masonry( int $post_id ): string {
+        $post   = get_post( $post_id );
+        $blocks = parse_blocks( $post->post_content );
+
+        $image_ids       = []; // IDs from native wp:gallery / wp:image blocks
+        $loose_video_ids = []; // IDs from standalone wp:video blocks outside a masonry block
+        $masonry_items   = []; // Items already inside a masonry block, in their saved order
+        $has_masonry     = false;
+        $other_blocks    = []; // Non-media blocks to keep (separator, paragraphs, etc.)
+
+        foreach ( $blocks as $block ) {
+            $name = $block['blockName'] ?? '';
+            if ( ! $name ) continue;
+
+            if ( $name === 'core/gallery' ) {
+                // Modern nested format: images are innerBlocks
+                foreach ( $block['innerBlocks'] as $inner ) {
+                    if ( ( $inner['blockName'] ?? '' ) === 'core/image' && ! empty( $inner['attrs']['id'] ) ) {
+                        $image_ids[] = (int) $inner['attrs']['id'];
+                    }
+                }
+                // Legacy flat format: IDs stored in attrs.ids
+                if ( empty( $image_ids ) && ! empty( $block['attrs']['ids'] ) ) {
+                    $image_ids = array_map( 'intval', $block['attrs']['ids'] );
+                }
+            } elseif ( $name === 'core/image' || $name === 'uagb/image' ) {
+                if ( ! empty( $block['attrs']['id'] ) ) {
+                    $image_ids[] = (int) $block['attrs']['id'];
+                }
+            } elseif ( $name === 'jetpack/tiled-gallery' ) {
+                // Jetpack stores IDs in attrs.ids (same flat format as old core/gallery)
+                if ( ! empty( $block['attrs']['ids'] ) ) {
+                    foreach ( $block['attrs']['ids'] as $id ) {
+                        $image_ids[] = (int) $id;
+                    }
+                }
+            } elseif ( $name === 'core/video' ) {
+                if ( ! empty( $block['attrs']['id'] ) ) {
+                    $loose_video_ids[] = (int) $block['attrs']['id'];
+                }
+            } elseif ( $name === 'pgcsimplygalleryblock/masonry' ) {
+                $has_masonry = true;
+                foreach ( $block['attrs']['images'] ?? [] as $img ) {
+                    if ( ! empty( $img['id'] ) ) {
+                        $masonry_items[] = [
+                            'id'   => (int) $img['id'],
+                            'type' => ( $img['type'] ?? 'image' ) === 'video' ? 'VIDEO' : 'IMAGE',
+                        ];
+                    }
+                }
+            } else {
+                $other_blocks[] = $block;
+            }
+        }
+
+        // Skip only when the masonry block is the sole media block — nothing left to merge.
+        // If other gallery blocks or loose video blocks are still present, absorb them.
+        if ( $has_masonry && empty( $image_ids ) && empty( $loose_video_ids ) ) {
+            return 'already_masonry';
+        }
+
+        // Build ordered media list. Keep existing masonry content first (preserves prior
+        // ordering), then append images from other gallery blocks, then loose videos.
+        $media_items = [];
+        if ( $has_masonry ) {
+            $media_items = $masonry_items;
+            foreach ( $image_ids as $id ) {
+                $media_items[] = [ 'id' => $id, 'type' => 'IMAGE' ];
+            }
+            foreach ( $loose_video_ids as $id ) {
+                $media_items[] = [ 'id' => $id, 'type' => 'VIDEO' ];
+            }
+        } else {
+            foreach ( $image_ids as $id ) {
+                $media_items[] = [ 'id' => $id, 'type' => 'IMAGE' ];
+            }
+            foreach ( $loose_video_ids as $id ) {
+                $media_items[] = [ 'id' => $id, 'type' => 'VIDEO' ];
+            }
+        }
+
+        if ( empty( $media_items ) ) {
+            return 'no_media';
+        }
+
+        $rest        = trim( serialize_blocks( $other_blocks ) );
+        $new_content = $this->masonry_block( $media_items ) . ( $rest ? "\n\n" . $rest : '' );
+
+        wp_update_post( [
+            'ID'           => $post_id,
+            'post_content' => $new_content,
+        ] );
+
+        return 'updated';
+    }
+
+    // Builds a Simply Gallery masonry block that accepts mixed images and videos
+    // in their original carousel order. Each video item uses the WP generic video
+    // SVG as its placeholder thumbnail, which Simply Gallery uses in the grid.
+    private function masonry_block( array $media_items ): string {
+        $ids        = array_column( $media_items, 'id' );
         $columns    = min( 4, count( $ids ) );
         $gallery_id = substr( md5( implode( ',', $ids ) ), 0, 8 );
-        $images_arr = [];
+        $items_arr  = [];
+        $video_svg  = includes_url( 'images/media/video.svg' );
 
-        foreach ( $ids as $id ) {
+        foreach ( $media_items as $item ) {
+            $id   = $item['id'];
+            $type = $item['type'];
             $url  = wp_get_attachment_url( $id );
             $meta = wp_get_attachment_metadata( $id );
-            $images_arr[] = [
-                'id'     => $id,
-                'url'    => $url,
-                'width'  => $meta['width'] ?? 0,
-                'height' => $meta['height'] ?? 0,
-            ];
+            $mime = get_post_mime_type( $id );
+            $post = get_post( $id );
+
+            if ( $type === 'VIDEO' ) {
+                $items_arr[] = [
+                    'id'          => $id,
+                    'title'       => $post->post_title ?? '',
+                    'url'         => $url,
+                    'link'        => $url,
+                    'alt'         => '',
+                    'description' => '',
+                    'caption'     => '',
+                    'mime'        => $mime ?: 'video/mp4',
+                    'type'        => 'video',
+                    'image'       => [ 'src' => $video_svg, 'width' => 48, 'height' => 64 ],
+                    'thumb'       => [ 'src' => $video_svg, 'width' => 48, 'height' => 64 ],
+                    'width'       => $meta['width'] ?? 1280,
+                    'height'      => $meta['height'] ?? 720,
+                    'fileLength'  => $meta['length_formatted'] ?? '',
+                    'meta'        => [ 'artist' => false, 'album' => false, 'bitrate' => false, 'bitrate_mode' => false ],
+                    'postlink'    => get_permalink( $id ) ?: $url,
+                ];
+            } else {
+                $items_arr[] = [
+                    'id'     => $id,
+                    'url'    => $url,
+                    'width'  => $meta['width'] ?? 0,
+                    'height' => $meta['height'] ?? 0,
+                ];
+            }
         }
 
         // pgcsimplygalleryblock/masonry is a dynamic block (server-side render).
@@ -173,7 +337,7 @@ class Social2WP_Formatter {
             'startPosIndex'                  => 0,
             'galleryType'                    => 'pgc_sgb_masonry',
             'galleryId'                      => $gallery_id,
-            'images'                         => $images_arr,
+            'images'                         => $items_arr,
             'useClobalSettings'              => true,
             'isIndexing'                     => false,
         ] );
@@ -183,7 +347,7 @@ class Social2WP_Formatter {
 
     private function video_block( int $id ): string {
         $url = wp_get_attachment_url( $id );
-        return "<!-- wp:video {\"id\":{$id}} -->\n<figure class=\"wp-block-video\"><video autoplay loop muted playsinline src=\"{$url}\"></video></figure>\n<!-- /wp:video -->";
+        return "<!-- wp:video {\"id\":{$id}} -->\n<figure class=\"wp-block-video\"><video controls src=\"{$url}\"></video></figure>\n<!-- /wp:video -->";
     }
 
     private function paragraph_blocks( string $caption ): string {
