@@ -7,6 +7,7 @@ class Social2WP_Settings {
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_init', [ $this, 'handle_regenerate' ] );
         add_action( 'admin_init', [ $this, 'handle_disconnect' ] );
+        add_action( 'wp_ajax_social2wp_convert_batch', [ $this, 'ajax_convert_batch' ] );
     }
 
     public function add_menu(): void {
@@ -44,14 +45,6 @@ class Social2WP_Settings {
         if ( ! isset( $_POST['social2wp_disconnect'] ) ) return;
         if ( ! current_user_can( 'manage_options' ) ) return;
         check_admin_referer( 'social2wp_disconnect' );
-
-        $api_key = get_option( 'social2wp_api_key', '' );
-        if ( $api_key ) {
-            wp_remote_post( 'https://social2wp.com/api/plugin-disconnect', [
-                'headers' => [ 'X-API-Key' => $api_key ],
-                'timeout' => 5,
-            ] );
-        }
 
         delete_option( 'social2wp_connected_at' );
         delete_option( 'social2wp_api_key' );
@@ -125,9 +118,9 @@ class Social2WP_Settings {
         $users           = get_users( [ 'capability' => 'edit_posts' ] );
         $site_url        = get_site_url();
         $dashboard_url   = 'https://social2wp.com/dashboard';
-        $regenerated     = isset( $_GET['regenerated'] );
-        $connected       = isset( $_GET['connected'] );
-        $disconnected    = isset( $_GET['disconnected'] );
+        $regenerated      = isset( $_GET['regenerated'] );
+        $connected        = isset( $_GET['connected'] );
+        $disconnected     = isset( $_GET['disconnected'] );
 
         // Collect registered separator block styles (theme/plugin additions)
         $sep_styles = [];
@@ -207,6 +200,7 @@ class Social2WP_Settings {
             <div class="notice notice-success is-dismissible"><p>API key regenerated. Update your Social2WP dashboard with the new key.</p></div>
             <?php endif; ?>
 
+
             <div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:1.5rem;margin-bottom:1rem;max-width:700px;">
                 <h2 style="margin-top:0;font-size:1rem;">How to connect</h2>
                 <ol style="color:#50575e;font-size:0.9rem;line-height:2;padding-left:1.25rem;margin:0;">
@@ -216,8 +210,9 @@ class Social2WP_Settings {
                     <li>Start your 30-day free trial</li>
                     <li>You're done — your WordPress site will be linked automatically</li>
                 </ol>
-                <p style="margin-top:0.75rem;margin-bottom:0;font-size:0.8125rem;">
+                <p style="margin-top:0.75rem;margin-bottom:0;font-size:0.8125rem;display:flex;gap:1.25rem;flex-wrap:wrap;">
                     <a href="https://social2wp.com/getting-started" target="_blank" rel="noopener">Full setup guide →</a>
+                    <a href="https://social2wp.com/getting-started#faq" target="_blank" rel="noopener">Frequently asked questions →</a>
                 </p>
             </div>
 
@@ -242,10 +237,24 @@ class Social2WP_Settings {
 
                 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;">
                     <?php if ( $connected_at ) : ?>
-                    <form method="post" onsubmit="return confirm('Disconnect this site from Social2WP? Syncing will stop until you reconnect.')">
+                    <form id="s2wp-disconnect-form" method="post">
                         <?php wp_nonce_field( 'social2wp_disconnect' ); ?>
                         <button type="submit" name="social2wp_disconnect" value="1" class="button" style="color:#b32d2e;">Disconnect from Social2WP</button>
                     </form>
+                    <script>
+                    document.getElementById('s2wp-disconnect-form').addEventListener('submit', function(e) {
+                        if (!confirm('Disconnect this site from Social2WP? Syncing will stop until you reconnect.')) {
+                            e.preventDefault();
+                            return;
+                        }
+                        e.preventDefault();
+                        var form = this;
+                        fetch('https://social2wp.com/api/plugin-disconnect', {
+                            method: 'POST',
+                            headers: { 'X-API-Key': <?php echo wp_json_encode( $api_key ); ?> }
+                        }).finally(function() { form.submit(); });
+                    });
+                    </script>
                     <?php else : ?>
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                         <input type="hidden" name="action" value="social2wp_connect">
@@ -283,6 +292,62 @@ class Social2WP_Settings {
                 </details>
             </div>
 
+            <?php if ( $connected_at ) : ?>
+            <div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:1.5rem;margin-bottom:1rem;max-width:700px;">
+                <h2 style="margin-top:0;font-size:1rem;">Sync newest post</h2>
+                <p style="color:#50575e;font-size:0.9rem;line-height:1.7;margin-bottom:1rem;">
+                    Syncs only your most recent Instagram post to WordPress right now — without waiting for the daily sync.
+                </p>
+                <div id="s2wp-sync-result" style="display:none;margin-bottom:0.75rem;font-size:0.875rem;padding:0.65rem 1rem;border-radius:4px;"></div>
+                <button type="button" id="s2wp-sync-btn" class="button button-primary">Sync newest Instagram post</button>
+                <p class="description" style="margin-top:0.75rem;">
+                    All other recent posts are gathered automatically in the daily sync.
+                </p>
+                <script>
+                (function() {
+                    var btn    = document.getElementById('s2wp-sync-btn');
+                    var result = document.getElementById('s2wp-sync-result');
+                    if (!btn) return;
+
+                    btn.addEventListener('click', function() {
+                        btn.disabled    = true;
+                        btn.textContent = 'Syncing…';
+                        result.style.display = 'none';
+
+                        fetch('https://social2wp.com/api/sync-now', {
+                            headers: { 'X-API-Key': <?php echo wp_json_encode( $api_key ); ?> }
+                        })
+                            .then(function(r) { return r.json(); })
+                            .then(function(resp) {
+                                result.style.display = 'block';
+                                if (resp.message && (resp.message.indexOf('Synced') === 0 || resp.message.indexOf('already') !== -1 || resp.message.indexOf('No posts') !== -1)) {
+                                    result.style.background = '#f0fdf4';
+                                    result.style.border     = '1px solid #bbf7d0';
+                                    result.style.color      = '#166534';
+                                } else {
+                                    result.style.background = '#fef2f2';
+                                    result.style.border     = '1px solid #fecaca';
+                                    result.style.color      = '#b32d2e';
+                                }
+                                result.innerHTML = resp.message || 'Something went wrong. Please try again.';
+                            })
+                            .catch(function() {
+                                result.style.display    = 'block';
+                                result.style.background = '#fef2f2';
+                                result.style.border     = '1px solid #fecaca';
+                                result.style.color      = '#b32d2e';
+                                result.innerHTML        = 'Network error. Please try again.';
+                            })
+                            .finally(function() {
+                                btn.disabled    = false;
+                                btn.textContent = 'Sync newest Instagram post';
+                            });
+                    });
+                })();
+                </script>
+            </div>
+            <?php endif; ?>
+
             <h2>Post settings</h2>
             <form method="post" action="options.php">
                 <?php settings_fields( 'social2wp' ); ?>
@@ -299,7 +364,14 @@ class Social2WP_Settings {
                                     <option value="masonry" disabled>Masonry — requires Simply Gallery Block plugin</option>
                                 <?php endif; ?>
                             </select>
-                            <p class="description">Social2WP currently supports Native WordPress Gallery and Simply Gallery Block. If you use a different gallery plugin, choose <strong>Native WordPress Gallery</strong> — many gallery plugins enhance the native block and will still apply their formatting automatically.</p>
+                            <p class="description">
+                                <strong>Simply Gallery Block is our recommended companion plugin.</strong>
+                                It allows photos and videos to appear together in a single gallery, exactly as they do in your Instagram posts — with proper playback controls and a clean lightbox viewer. Without it, videos have to be placed in separate blocks below your photos, which increases page weight and gives visitors no visible way to control playback.
+                            </p>
+                            <p class="description" style="margin-top:0.5rem;">
+                                To use it: install the free <a href="https://wordpress.org/plugins/simply-gallery-block/" target="_blank" rel="noopener noreferrer">Simply Gallery Block</a> plugin, then select <strong>Masonry (Simply Gallery Block)</strong> above.
+                                Support for other gallery plugins is in progress — if you use a different one, choose <strong>Native WordPress Gallery</strong> for now.
+                            </p>
                         </td>
                     </tr>
 
@@ -460,7 +532,185 @@ class Social2WP_Settings {
                 </table>
                 <?php submit_button( 'Save settings' ); ?>
             </form>
+            <?php if ( $masonry_ok && $format === 'masonry' ) : ?>
+            <div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:1.5rem;margin-top:1.5rem;max-width:700px;">
+                <h2 style="margin-top:0;font-size:1rem;">Convert existing posts to masonry gallery</h2>
+                <p style="color:#50575e;font-size:0.9rem;line-height:1.7;margin-bottom:0.75rem;">
+                    This will scan every post on this site and rebuild any native WordPress gallery as a Simply Gallery Block masonry layout — combining images and videos into one gallery block, replacing any separate video blocks.
+                    Posts already in masonry format and posts with no gallery or video blocks are skipped automatically.
+                </p>
+                <p style="color:#50575e;font-size:0.9rem;line-height:1.7;margin-bottom:1rem;">
+                    <strong>Note:</strong> for posts that originally had videos mixed between photos, images will appear first followed by videos. The original carousel order within each group is preserved.
+                </p>
+                <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:4px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem;line-height:1.6;">
+                    <strong>Back up your database before continuing.</strong> This tool rewrites post content directly in the database. There is no undo — changes can only be reversed by restoring a backup. Make sure you have a recent database backup before clicking the button below.
+                </div>
+                <div id="s2wp-convert-progress" style="margin-bottom:0.75rem;font-size:0.875rem;display:none;"></div>
+                <button type="button" id="s2wp-convert-btn" class="button button-primary">
+                    Convert existing posts to masonry gallery
+                </button>
+                <script>
+                var s2wpConvert = {
+                    ajaxUrl: <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
+                    nonce:   <?php echo wp_json_encode( wp_create_nonce( 'social2wp_convert_galleries' ) ); ?>
+                };
+                (function() {
+                    var btn      = document.getElementById('s2wp-convert-btn');
+                    var progress = document.getElementById('s2wp-convert-progress');
+                    if (!btn) return;
+
+                    btn.addEventListener('click', function() {
+                        if (!confirm('This will update the content of all posts on this site. It cannot be undone without a backup. Continue?')) return;
+                        btn.disabled = true;
+                        progress.style.display = 'block';
+                        progress.style.color   = '#50575e';
+                        progress.innerHTML     = 'Starting&hellip;';
+
+                        var totals = { updated: 0, skipped: 0, no_media: 0, found_blocks: {} };
+
+                        function runBatch(offset) {
+                            var data = new FormData();
+                            data.append('action', 'social2wp_convert_batch');
+                            data.append('nonce',  s2wpConvert.nonce);
+                            data.append('offset', offset);
+
+                            fetch(s2wpConvert.ajaxUrl, { method: 'POST', body: data })
+                                .then(function(r) { return r.json(); })
+                                .then(function(resp) {
+                                    if (!resp.success) throw new Error(resp.data || 'Server error');
+                                    var d = resp.data;
+                                    totals.updated  += d.updated;
+                                    totals.skipped  += d.skipped;
+                                    totals.no_media += d.no_media;
+                                    for (var k in d.found_blocks) {
+                                        totals.found_blocks[k] = (totals.found_blocks[k] || 0) + d.found_blocks[k];
+                                    }
+                                    if (!d.done) {
+                                        progress.innerHTML = 'Processed ' + d.next_offset + ' of ' + d.total + ' posts&hellip;';
+                                        runBatch(d.next_offset);
+                                    } else {
+                                        showResults(totals, d.total);
+                                        btn.disabled = false;
+                                    }
+                                })
+                                .catch(function(err) {
+                                    progress.style.color = '#b32d2e';
+                                    progress.innerHTML = 'Error: ' + err.message + '. Try again or refresh the page.';
+                                    btn.disabled = false;
+                                });
+                        }
+
+                        runBatch(0);
+                    });
+
+                    function showResults(t, total) {
+                        var parts = [];
+                        parts.push('<strong>' + t.updated + '</strong> post' + (t.updated !== 1 ? 's' : '') + ' converted to masonry.');
+                        if (t.skipped)  parts.push('<strong>' + t.skipped  + '</strong> already in masonry format (skipped).');
+                        if (t.no_media) parts.push('<strong>' + t.no_media + '</strong> had no recognised media blocks (skipped).');
+
+                        var html = '<strong>Conversion complete</strong> &mdash; ' + total + ' posts checked. ' + parts.join(' ');
+
+                        if (t.no_media > 0 && Object.keys(t.found_blocks).length > 0) {
+                            var sorted = Object.entries(t.found_blocks).sort(function(a,b){ return b[1]-a[1]; }).slice(0,20);
+                            html += '<br><br><strong>Block types in skipped posts:</strong><ul style="margin:.4rem 0 0 1.25rem;font-size:.8125rem;">';
+                            sorted.forEach(function(kv) {
+                                html += '<li><code>' + kv[0] + '</code> &mdash; ' + kv[1] + ' instance' + (kv[1] !== 1 ? 's' : '') + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+
+                        progress.style.color      = '#166534';
+                        progress.style.background = '#f0fdf4';
+                        progress.style.border     = '1px solid #bbf7d0';
+                        progress.style.padding    = '.75rem 1rem';
+                        progress.style.borderRadius = '4px';
+                        progress.innerHTML = html;
+                    }
+                })();
+                </script>
+            </div>
+            <?php endif; ?>
         </div>
         <?php
+    }
+
+    public function ajax_convert_batch(): void {
+        check_ajax_referer( 'social2wp_convert_galleries', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Unauthorized', 403 );
+        }
+        if ( get_option( 'social2wp_gallery_format' ) !== 'masonry' || ! Social2WP_Formatter::masonry_available() ) {
+            wp_send_json_error( 'Simply Gallery Block is not active or masonry format is not selected.' );
+        }
+
+        $offset     = max( 0, (int) ( $_POST['offset'] ?? 0 ) );
+        $batch_size = 20;
+        $uid        = get_current_user_id();
+        $cache_key  = "s2wp_convert_total_{$uid}";
+
+        if ( $offset === 0 ) {
+            $count_query = new WP_Query( [
+                'post_type'      => 'post',
+                'post_status'    => [ 'publish', 'draft', 'pending', 'future', 'private' ],
+                'posts_per_page' => 1,
+                'no_found_rows'  => false,
+                'fields'         => 'ids',
+            ] );
+            $total = (int) $count_query->found_posts;
+            set_transient( $cache_key, $total, 600 );
+        } else {
+            $total = (int) get_transient( $cache_key );
+        }
+
+        $query = new WP_Query( [
+            'post_type'      => 'post',
+            'post_status'    => [ 'publish', 'draft', 'pending', 'future', 'private' ],
+            'posts_per_page' => $batch_size,
+            'offset'         => $offset,
+            'orderby'        => 'ID',
+            'order'          => 'ASC',
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+        ] );
+
+        $formatter    = new Social2WP_Formatter();
+        $updated      = 0;
+        $skipped      = 0;
+        $no_media     = 0;
+        $found_blocks = [];
+
+        foreach ( $query->posts as $post_id ) {
+            $result = $formatter->convert_post_to_masonry( (int) $post_id );
+            switch ( $result ) {
+                case 'updated':         $updated++; break;
+                case 'already_masonry': $skipped++; break;
+                default:
+                    $no_media++;
+                    $post   = get_post( (int) $post_id );
+                    $blocks = parse_blocks( $post->post_content ?? '' );
+                    foreach ( $blocks as $block ) {
+                        $name = $block['blockName'] ?? '';
+                        if ( $name ) {
+                            $found_blocks[ $name ] = ( $found_blocks[ $name ] ?? 0 ) + 1;
+                        }
+                    }
+                    break;
+            }
+        }
+
+        $next_offset = $offset + count( $query->posts );
+        $done        = empty( $query->posts ) || $next_offset >= $total;
+        if ( $done ) delete_transient( $cache_key );
+
+        wp_send_json_success( [
+            'done'         => $done,
+            'updated'      => $updated,
+            'skipped'      => $skipped,
+            'no_media'     => $no_media,
+            'found_blocks' => $found_blocks,
+            'next_offset'  => $next_offset,
+            'total'        => $total,
+        ] );
     }
 }

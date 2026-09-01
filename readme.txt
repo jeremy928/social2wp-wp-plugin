@@ -4,7 +4,7 @@ Tags: instagram, sync, social media, posts, automation
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.2.1
+Stable tag: 1.5.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,6 +72,27 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 
 == Changelog ==
 
+= 1.5.1 =
+* Fixed: disconnecting the plugin now reliably removes the site from Social2WP — previously the server-side disconnect call was silently blocked
+
+= 1.5.0 =
+* Added: "Sync newest post" button on the settings page — syncs your most recent Instagram post to WordPress immediately, without waiting for the daily sync (limited to 5 manual syncs per day)
+
+= 1.4.2 =
+* Added: backup warning on the gallery conversion tool — reminds admins to back up their database before running the conversion
+
+= 1.4.1 =
+* Fixed: gallery conversion tool now processes posts in AJAX batches of 20, preventing server timeout on sites with large numbers of posts
+
+= 1.4.0 =
+* Added: one-click "Convert existing posts to masonry gallery" button on the settings page — converts all previously synced posts from native gallery format to Simply Gallery Block masonry layout, combining separate video blocks into the gallery
+
+= 1.3.0 =
+* Added: videos from Instagram carousels now appear inside the Simply Gallery Block masonry gallery alongside photos, in their original order, with proper playback controls
+* Added: native video blocks (non-masonry format) now show playback controls instead of silent autoplay
+* Added: FAQ link on the settings page pointing to the getting-started guide
+* Updated: gallery format description now explains why Simply Gallery Block is recommended for posts with video
+
 = 1.2.1 =
 * Added: caption font size setting — choose Small, Medium, Large, Extra Large, or Theme default
 
@@ -114,6 +135,24 @@ Minimally. When an admin views the plugin settings page, the plugin sends a stat
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.5.1 =
+Fixes disconnect not reliably removing the site from Social2WP. Recommended for all users.
+
+= 1.5.0 =
+Adds a "Sync newest post" button to the settings page. Requires a Social2WP account update — the worker handles the sync limit automatically.
+
+= 1.4.2 =
+Adds a backup warning to the gallery conversion tool. No functional changes.
+
+= 1.4.1 =
+Fixes a timeout issue in the gallery conversion tool on sites with many posts. No other changes.
+
+= 1.4.0 =
+Adds a one-click gallery conversion tool on the settings page. No automatic changes — the conversion only runs when you click the button.
+
+= 1.3.0 =
+Videos in carousels now appear inside the gallery alongside photos. If you use Simply Gallery Block, no action needed — your existing settings carry over. Native format users will see videos with playback controls instead of silent autoplay.
 
 = 1.1.1 =
 Minor readme and instructions update. No code changes.
